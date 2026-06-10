@@ -17,5 +17,16 @@ int main() {
 	printf("DOS header found\n");
 	printf("e_lfanew offset: %d\n", pdosHeader->e_lfanew);
 
+	// Parse NT headers
+	PIMAGE_NT_HEADERS newTechnologyHeaders = (PIMAGE_NT_HEADERS)((BYTE*)pdosHeader + pdosHeader->e_lfanew);
+
+	// Check magic field for architecture
+	if (newTechnologyHeaders->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+		printf("Program for 32-bit\n");
+	}
+	else {
+		printf("Program for 64-bit\n");
+	}
+
 	return 0;
 }
