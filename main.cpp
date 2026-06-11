@@ -2,12 +2,23 @@
 #include <cstdio>
 #include <winnt.h>
 
+bool isEmpty(BYTE* importVal, size_t size) {
+	size_t sum = 0;
+	for (size_t i = 0; i < size; i++) {
+		if (importVal[i] == NULL)
+			sum++;
+	}
+	if (sum == size) {
+		return 1;
+	}
+	return 0;
+}
+#define IS_STRUCT_EMPTY(ptr) isEmpty((BYTE*)ptr, sizeof *ptr )
+
 int main() {
 	HMODULE appHandle = GetModuleHandle(NULL);
 	printf("Application handle: %p\n", appHandle);
 
-	// Research on PE format structures
-	// https://learn.microsoft.com/en-us/windows/win32/debug/pe-format
 	PIMAGE_DOS_HEADER pdosHeader = (PIMAGE_DOS_HEADER)appHandle;
 	if (pdosHeader->e_magic != IMAGE_DOS_SIGNATURE) {
 		printf("Invalid DOS signature\n");
@@ -15,7 +26,6 @@ int main() {
 	}
 
 	printf("DOS header found\n");
-	printf("e_lfanew offset: %d\n", pdosHeader->e_lfanew);
 
 	// Parse NT headers
 	PIMAGE_NT_HEADERS newTechnologyHeaders = (PIMAGE_NT_HEADERS)((BYTE*)pdosHeader + pdosHeader->e_lfanew);
@@ -26,6 +36,19 @@ int main() {
 	}
 	else {
 		printf("Program for 64-bit\n");
+	}
+
+	// Get Import Directory Table address from DataDirectory
+	DWORD importRVA = newTechnologyHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+	PIMAGE_IMPORT_DESCRIPTOR importDirectoryTable = (PIMAGE_IMPORT_DESCRIPTOR)((BYTE*)pdosHeader + importRVA);
+
+	printf("Import Directory Table found\n");
+
+	// Iterate through imported DLLs
+	while (!IS_STRUCT_EMPTY(importDirectoryTable)) {
+		const char* dllName = (const char*)((BYTE*)pdosHeader + importDirectoryTable->Name);
+		printf("DLL: %s\n", dllName);
+		importDirectoryTable = importDirectoryTable + 1;
 	}
 
 	return 0;
