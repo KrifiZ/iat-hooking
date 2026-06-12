@@ -48,6 +48,15 @@ int main() {
 	while (!IS_STRUCT_EMPTY(importDirectoryTable)) {
 		const char* dllName = (const char*)((BYTE*)pdosHeader + importDirectoryTable->Name);
 		printf("DLL: %s\n", dllName);
+
+		// Iterate through thunk table for function names
+		PIMAGE_THUNK_DATA32 lookupTable = (PIMAGE_THUNK_DATA32)((BYTE*)pdosHeader + importDirectoryTable->OriginalFirstThunk);
+		while (!IS_STRUCT_EMPTY(lookupTable)) {
+			PIMAGE_IMPORT_BY_NAME functionName = (PIMAGE_IMPORT_BY_NAME)((BYTE*)pdosHeader + lookupTable->u1.Function);
+			printf("  Function: %s\n", functionName->Name);
+			lookupTable += 1;
+		}
+
 		importDirectoryTable = importDirectoryTable + 1;
 	}
 
