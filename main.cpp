@@ -39,6 +39,13 @@ void printDllFunctionsName(PIMAGE_THUNK_DATA32 lookupTable, PIMAGE_DOS_HEADER pd
 	}
 }
 
+typedef int (WINAPI* MessageBoxA_fn)(HWND, LPCSTR, LPCSTR, UINT);
+
+int WINAPI fakeBox(HWND, LPCSTR, LPCSTR, UINT) {
+	printf("Hook works!\n");
+	return 0;
+}
+
 int main() {
 	HMODULE appHandle = GetModuleHandle(NULL);
 	printf("Application handle: %p\n", appHandle);
@@ -60,13 +67,27 @@ int main() {
 	DWORD importRVA = newTechnologyHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
 	PIMAGE_IMPORT_DESCRIPTOR importDirectoryTable = (PIMAGE_IMPORT_DESCRIPTOR)((BYTE*)pdosHeader + importRVA);
 
-	// Iterate through imported DLLs
+	// Search for USER32.dll and attempt to hook MessageBoxA
 	while (!IS_STRUCT_EMPTY(importDirectoryTable)) {
-		printDllName(importDirectoryTable, pdosHeader);
+		const char* dllName = (const char*)((BYTE*)pdosHeader + importDirectoryTable->Name);
+		if (strcmp(dllName, "USER32.dll") == 0) {
+			printDllName(importDirectoryTable, pdosHeader);
 
-		// Iterate through thunk table for function names
-		PIMAGE_THUNK_DATA32 lookupTable = (PIMAGE_THUNK_DATA32)((BYTE*)pdosHeader + importDirectoryTable->OriginalFirstThunk);
-		printDllFunctionsName(lookupTable, pdosHeader);
+			// Iterate through thunk table for function names
+			PIMAGE_THUNK_DATA32 lookupTable = (PIMAGE_THUNK_DATA32)((BYTE*)pdosHeader + importDirectoryTable->OriginalFirstThunk);
+			int sum = 0;
+			while (!IS_STRUCT_EMPTY(lookupTable)) {
+				PIMAGE_IMPORT_BY_NAME functionName = (PIMAGE_IMPORT_BY_NAME)((BYTE*)pdosHeader + lookupTable->u1.Function);
+				printf("%s \n", functionName->Name);
+
+				if (strcmp(functionName->Name, "MessageBoxA") == 0) {
+					printf("Found MessageBoxA at index %d\n", sum);
+				}
+
+				lookupTable += 1;
+				sum++;
+			}
+		}
 
 		importDirectoryTable = importDirectoryTable + 1;
 	}
