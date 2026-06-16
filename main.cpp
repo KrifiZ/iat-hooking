@@ -75,12 +75,29 @@ int main() {
 		int sum = 0;
 		const char* dllName = (const char*)((BYTE*)pdosHeader + importDirectoryTable->Name);
 		if (strcmp(dllName, "USER32.dll") == 0) {
-			printDllName(importDirectoryTable, pdosHeader);
-			printDllFunctionsName(lookupTable, pdosHeader);
+			while (!IS_STRUCT_EMPTY(lookupTable)) {
+				PIMAGE_IMPORT_BY_NAME functionName = (PIMAGE_IMPORT_BY_NAME)((BYTE*)pdosHeader + lookupTable->u1.Function);
+				if (strcmp(functionName->Name, "MessageBoxA") == 0) {
+					lookupTable = (PIMAGE_THUNK_DATA32)((BYTE*)pdosHeader + importDirectoryTable->FirstThunk);
+					lookupTable += sum;
+					// This is used to unlock memory in IAT, not the memory in user32 which the function points to with an absolute address
+					LPVOID lookupAddress = &(lookupTable->u1.Function);
+					DWORD oldProtect;
+					VirtualProtect(lookupAddress, sizeof & MessageBoxA, PAGE_EXECUTE_READWRITE, &oldProtect);
+
+					(lookupTable->u1.Function) = (DWORD)fakeBox;
+
+					VirtualProtect(lookupAddress, sizeof(DWORD), oldProtect, &oldProtect);
+
+				}
+				lookupTable++;
+				sum++;
+			}
 		}
 		importDirectoryTable = importDirectoryTable + 1;
 
 	}
+	MessageBoxA(NULL, "Hello there", "Window to be hooked", MB_OK);
 
 	return 0;
 }
